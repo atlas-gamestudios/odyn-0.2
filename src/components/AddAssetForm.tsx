@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, Building, MapPin, Shield, Users, Settings, AlertTriangle, Save, Loader2, Brain } from 'lucide-react';
 import { Database } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -13,24 +13,10 @@ interface AddAssetFormProps {
   onSubmit: (data: AssetInsert) => Promise<void>;
 }
 
-interface PersonnelDetail {
-  id: string;
-  name: string;
-  employee_id: string;
-  department: string;
-  current_location: {
-    city: string;
-    country: string;
-  };
-}
-
 const AddAssetForm: React.FC<AddAssetFormProps> = ({ onClose, onSubmit }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiScoring, setAiScoring] = useState(false);
-  const [allPersonnel, setAllPersonnel] = useState<PersonnelDetail[]>([]);
-  const [personnelSearchTerm, setPersonnelSearchTerm] = useState('');
-  const [loadingPersonnel, setLoadingPersonnel] = useState(false);
   const { profile } = useAuth();
   const [mitigations, setMitigations] = useState<AppliedMitigation[]>([]);
   
@@ -91,55 +77,6 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onClose, onSubmit }) => {
       department: ''
     }
   });
-
-  // Fetch all personnel when component mounts
-  useEffect(() => {
-    fetchPersonnel();
-  }, []);
-
-  const fetchPersonnel = async () => {
-    try {
-      setLoadingPersonnel(true);
-      const { data, error } = await supabase
-        .from('personnel_details')
-        .select('id, name, employee_id, department, current_location')
-        .order('name');
-
-      if (error) throw error;
-      setAllPersonnel(data || []);
-    } catch (err) {
-      console.error('Error fetching personnel:', err);
-    } finally {
-      setLoadingPersonnel(false);
-    }
-  };
-
-  // Filter personnel based on search term and already selected personnel
-  const filteredPersonnel = allPersonnel.filter(person => {
-    const matchesSearch = 
-      person.name.toLowerCase().includes(personnelSearchTerm.toLowerCase()) ||
-      person.employee_id.toLowerCase().includes(personnelSearchTerm.toLowerCase()) ||
-      person.department.toLowerCase().includes(personnelSearchTerm.toLowerCase());
-    
-    const isNotSelected = !formData.personnel.authorized.includes(person.id);
-    
-    return matchesSearch && isNotSelected;
-  });
-
-  // Get selected personnel details
-  const selectedPersonnel = allPersonnel.filter(person => 
-    formData.personnel.authorized.includes(person.id)
-  );
-
-  // Add personnel to authorized list
-  const addPersonnel = (personnelId: string) => {
-    updateFormData('personnel.authorized', [...formData.personnel.authorized, personnelId]);
-  };
-
-  // Remove personnel from authorized list
-  const removePersonnel = (personnelId: string) => {
-    updateFormData('personnel.authorized', formData.personnel.authorized.filter(id => id !== personnelId));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -676,96 +613,9 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onClose, onSubmit }) => {
                 />
               </div>
             </div>
-
-          {/* Authorized Personnel */}
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Authorized Personnel
-            </label>
-            
-            {/* Search input */}
-            <div className="relative mb-4">
-              <input
-                type="text"
-                value={personnelSearchTerm}
-                onChange={(e) => setPersonnelSearchTerm(e.target.value)}
-                placeholder="Search personnel by name, ID, or department..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {loadingPersonnel && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                </div>
-              )}
-            </div>
-            
-            {/* Selected personnel list */}
-            {selectedPersonnel.length > 0 && (
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Authorized Personnel ({selectedPersonnel.length})</h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {selectedPersonnel.map(person => (
-                    <div key={person.id} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-100 rounded-lg">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{person.name}</p>
-                        <p className="text-xs text-gray-500">{person.employee_id} • {person.department}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removePersonnel(person.id)}
-                        className="p-1 text-red-500 hover:text-red-700 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Search results */}
-            {personnelSearchTerm && (
-              <div className="border border-gray-200 rounded-lg">
-                <div className="p-2 bg-gray-50 border-b border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-700">Search Results</h4>
-                </div>
-                <div className="max-h-60 overflow-y-auto">
-                  {filteredPersonnel.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
-                      No matching personnel found
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-gray-100">
-                      {filteredPersonnel.map(person => (
-                        <div key={person.id} className="flex items-center justify-between p-3 hover:bg-gray-50">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{person.name}</p>
-                            <div className="flex items-center space-x-2">
-                              <p className="text-xs text-gray-500">{person.employee_id}</p>
-                              <span className="text-xs px-2 py-0.5 bg-gray-100 rounded-full text-gray-700">{person.department}</span>
-                              <span className="text-xs text-gray-500">
-                                {person.current_location?.city}, {person.current_location?.country}
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => addPersonnel(person.id)}
-                            className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
-                          >
-                            Add
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Responsible Officer */}
+          {/* Responsible Officer */}
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
               <Shield className="w-5 h-5 text-red-500" />
@@ -834,3 +684,141 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ onClose, onSubmit }) => {
 
           {/* Security Systems */}
           <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+              <Settings className="w-5 h-5 text-orange-500" />
+              <span>Security Systems</span>
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  CCTV Coverage (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.security_systems.cctv.coverage}
+                  onChange={(e) => updateFormData('security_systems.cctv.coverage', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Access Control Zones
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.security_systems.accessControl.zones}
+                  onChange={(e) => updateFormData('security_systems.accessControl.zones', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Alarm Sensors
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.security_systems.alarms.sensors}
+                  onChange={(e) => updateFormData('security_systems.alarms.sensors', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Compliance */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Compliance Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Audit Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.compliance.lastAudit}
+                  onChange={(e) => updateFormData('compliance.lastAudit', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Next Audit Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.compliance.nextAudit}
+                  onChange={(e) => updateFormData('compliance.nextAudit', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Compliance Score (0-100)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={formData.compliance.score}
+                  onChange={(e) => updateFormData('compliance.score', parseInt(e.target.value) || 0)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Mitigations */}
+          <div>
+            <MitigationSelector
+              category="asset"
+              selectedMitigations={mitigations}
+              onMitigationsChange={setMitigations}
+              disabled={loading}
+            />
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || aiScoring}
+              className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {loading || aiScoring ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>{aiScoring ? 'Calculating AI Risk Score...' : 'Adding...'}</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Add Asset</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default AddAssetForm;
+
+export default AddAssetForm
